@@ -1,14 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
+const {ensureAuthentication} = require('../helpers/auth');
 
 // Load Idea Model
 require('../models/idea');
 const Idea = mongoose.model('ideas');
 
 // Idea Index Page
-router.get('/', (req, res) => {
-  Idea.find({})
+router.get('/', ensureAuthentication, (req, res) => {
+  Idea.find({user: req.user.id})
       .sort({date: 'desc'})
       .then(ideas => {
           res.render('ideas/index', {ideas: ideas});
@@ -17,24 +18,28 @@ router.get('/', (req, res) => {
 
 
 // Add idea Form
-router.get('/add', (req, res) => {
+router.get('/add', ensureAuthentication, (req, res) => {
   res.render('ideas/add');
 });
 
 // Edit idea Form
-router.get('/edit/:id', (req, res) => {
+router.get('/edit/:id', ensureAuthentication, (req, res) => {
   Idea.findOne({
       _id: req.params.id
   }).then(idea => {
+    if (idea.user != req.user.id) {
+      req.flash('error_msg', 'Not Authorized');
+      res.redirect('/ideas');
+    } else {
       res.render('ideas/edit', {
           idea: idea
-      })
-  });
-  
+      });
+    }
+  });  
 });
 
 // Process form
-router.post('/', (req, res) => {
+router.post('/', ensureAuthentication, (req, res) => {
   let errors = [];
 
   if(!req.body.title){
@@ -52,7 +57,8 @@ router.post('/', (req, res) => {
   } else {
       const newUser = {
           title: req.body.title,
-          details: req.body.details
+          details: req.body.details,
+          user: req.user.id
       }
       new Idea(newUser)
           .save()
@@ -64,7 +70,7 @@ router.post('/', (req, res) => {
 });
 
 // Edit Form Process
-router.put('/:id', (req, res) => {
+router.put('/:id', ensureAuthentication, (req, res) => {
   Idea.findOne({
       _id: req.params.id
   })
@@ -82,7 +88,7 @@ router.put('/:id', (req, res) => {
 
 // Delete idea
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', ensureAuthentication, (req, res) => {
   Idea.remove({
       _id: req.params.id
   })
